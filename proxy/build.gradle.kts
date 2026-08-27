@@ -20,8 +20,9 @@ tasks {
 
     jar {
         manifest {
-            attributes["Implementation-Title"] = "Velocity"
-            attributes["Implementation-Vendor"] = "Velocity Contributors"
+            attributes["Implementation-Title"] = "Shibboleth Velocity"
+            attributes["Implementation-Vendor"] = "Telesphoreo and Velocity Contributors"
+            attributes["Implementation-Version"] = "${project.version}-shibboleth"
             attributes["Multi-Release"] = "true"
         }
     }

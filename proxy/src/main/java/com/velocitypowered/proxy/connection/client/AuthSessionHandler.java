@@ -196,6 +196,13 @@ public class AuthSessionHandler implements MinecraftSessionHandler {
 
   @Override
   public boolean handle(ServerboundCookieResponsePacket packet) {
+    if (inbound.handleCookieResponse(packet)) {
+      return true;
+    }
+    if (connectedPlayer == null) {
+      inbound.disconnect(Component.translatable("multiplayer.disconnect.invalid_player_data"));
+      return true;
+    }
     server.getEventManager()
         .fire(new CookieReceiveEvent(connectedPlayer, packet.getKey(), packet.getPayload()))
         .thenAcceptAsync(event -> {

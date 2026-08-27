@@ -40,6 +40,7 @@ import com.velocitypowered.proxy.protocol.packet.EncryptionRequestPacket;
 import com.velocitypowered.proxy.protocol.packet.EncryptionResponsePacket;
 import com.velocitypowered.proxy.protocol.packet.LoginPluginResponsePacket;
 import com.velocitypowered.proxy.protocol.packet.ServerLoginPacket;
+import com.velocitypowered.proxy.protocol.packet.ServerboundCookieResponsePacket;
 import com.velocitypowered.proxy.util.VelocityProperties;
 import io.netty.buffer.ByteBuf;
 import java.net.InetSocketAddress;
@@ -77,6 +78,7 @@ public class InitialLoginSessionHandler implements MinecraftSessionHandler {
   private @MonotonicNonNull ServerLoginPacket login;
   private byte[] verify = EMPTY_BYTE_ARRAY;
   private LoginState currentState = LoginState.LOGIN_PACKET_EXPECTED;
+  private boolean offlineEncryption;
   private final boolean forceKeyAuthentication;
 
   InitialLoginSessionHandler(VelocityServer server, MinecraftConnection mcConnection,
@@ -150,6 +152,14 @@ public class InitialLoginSessionHandler implements MinecraftSessionHandler {
             this.verify = Arrays.copyOf(request.getVerifyToken(), 4);
             mcConnection.write(request);
             this.currentState = LoginState.ENCRYPTION_REQUEST_SENT;
+          } else if (mcConnection.getProtocolVersion()
+              .noLessThan(ProtocolVersion.MINECRAFT_1_20_5)) {
+            EncryptionRequestPacket request = generateEncryptionRequest();
+            request.setShouldAuthenticate(false);
+            this.verify = Arrays.copyOf(request.getVerifyToken(), 4);
+            this.offlineEncryption = true;
+            mcConnection.write(request);
+            this.currentState = LoginState.ENCRYPTION_REQUEST_SENT;
           } else {
             mcConnection.setActiveSessionHandler(StateRegistry.LOGIN,
                 new AuthSessionHandler(server, inbound,
@@ -169,6 +179,11 @@ public class InitialLoginSessionHandler implements MinecraftSessionHandler {
   public boolean handle(LoginPluginResponsePacket packet) {
     this.inbound.handleLoginPluginResponse(packet);
     return true;
+  }
+
+  @Override
+  public boolean handle(ServerboundCookieResponsePacket packet) {
+    return inbound.handleCookieResponse(packet);
   }
 
   @Override
@@ -204,6 +219,14 @@ public class InitialLoginSessionHandler implements MinecraftSessionHandler {
       // Go ahead and enable encryption. Once the client sends EncryptionResponse, encryption
       // is enabled.
       mcConnection.enableEncryption(decryptedSharedSecret);
+      inbound.encrypted();
+
+      if (offlineEncryption) {
+        mcConnection.setActiveSessionHandler(StateRegistry.LOGIN,
+            new AuthSessionHandler(server, inbound,
+                GameProfile.forOfflinePlayer(login.getUsername()), false, null));
+        return true;
+      }
 
       String serverId = generateServerId(decryptedSharedSecret, serverKeyPair.getPublic());
       String playerIp = ((InetSocketAddress) mcConnection.getRemoteAddress()).getHostString();

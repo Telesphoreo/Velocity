@@ -9,6 +9,8 @@ package com.velocitypowered.api.proxy;
 
 import com.velocitypowered.api.proxy.crypto.KeyIdentifiable;
 import com.velocitypowered.api.proxy.messages.ChannelIdentifier;
+import java.util.concurrent.CompletableFuture;
+import net.kyori.adventure.key.Key;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
@@ -28,6 +30,24 @@ public interface LoginPhaseConnection extends InboundConnection, KeyIdentifiable
    */
   void sendLoginPluginMessage(ChannelIdentifier identifier, byte[] contents,
       MessageConsumer consumer);
+
+  /**
+   * Requests a cookie over an encrypted connection while the connection is still in the login
+   * phase. The returned future is completed with the cookie payload, or {@code null} when the
+   * client has no value for the key.
+   *
+   * @param key the cookie identifier
+   * @return the pending cookie response
+   * @sinceMinecraft 1.20.5
+   */
+  CompletableFuture<byte[]> requestCookie(Key key);
+
+  /**
+   * Returns whether the client transport is encrypted at this point in the login phase.
+   *
+   * @return {@code true} when subsequent packets are encrypted
+   */
+  boolean isEncrypted();
 
   /**
    * Consumes the message.

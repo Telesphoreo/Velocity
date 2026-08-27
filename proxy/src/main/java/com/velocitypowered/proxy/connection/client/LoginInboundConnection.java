@@ -27,15 +27,21 @@ import com.velocitypowered.api.proxy.messages.ChannelIdentifier;
 import com.velocitypowered.proxy.connection.MinecraftConnection;
 import com.velocitypowered.proxy.protocol.packet.LoginPluginMessagePacket;
 import com.velocitypowered.proxy.protocol.packet.LoginPluginResponsePacket;
+import com.velocitypowered.proxy.protocol.packet.ClientboundCookieRequestPacket;
+import com.velocitypowered.proxy.protocol.packet.ServerboundCookieResponsePacket;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.net.InetSocketAddress;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.key.Key;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import space.vectrix.flare.fastutil.Int2ObjectSyncMap;
 
@@ -51,6 +57,8 @@ public class LoginInboundConnection implements LoginPhaseConnection, KeyIdentifi
   private final Int2ObjectMap<MessageConsumer> outstandingResponses;
   private volatile int sequenceCounter;
   private final Queue<LoginPluginMessagePacket> loginMessagesToSend;
+  private final ConcurrentMap<Key, CompletableFuture<byte[]>> outstandingCookies;
+  private volatile boolean encrypted;
   private volatile Runnable onAllMessagesHandled;
   private volatile boolean loginEventFired;
   private @MonotonicNonNull IdentifiedKey playerKey;
@@ -60,6 +68,7 @@ public class LoginInboundConnection implements LoginPhaseConnection, KeyIdentifi
     this.delegate = delegate;
     this.outstandingResponses = Int2ObjectSyncMap.hashmap();
     this.loginMessagesToSend = new ConcurrentLinkedQueue<>();
+    this.outstandingCookies = new ConcurrentHashMap<>();
   }
 
   @Override
@@ -116,6 +125,44 @@ public class LoginInboundConnection implements LoginPhaseConnection, KeyIdentifi
     }
   }
 
+  @Override
+  public CompletableFuture<byte[]> requestCookie(final Key key) {
+    if (key == null) {
+      throw new NullPointerException("key");
+    }
+    if (delegate.getProtocolVersion().lessThan(ProtocolVersion.MINECRAFT_1_20_5)) {
+      throw new IllegalStateException("Cookies require Minecraft 1.20.5 or newer");
+    }
+    if (!encrypted) {
+      throw new IllegalStateException("Login cookies require an encrypted connection");
+    }
+    final CompletableFuture<byte[]> response = new CompletableFuture<>();
+    if (outstandingCookies.putIfAbsent(key, response) != null) {
+      throw new IllegalStateException("A login cookie request is already pending for " + key);
+    }
+    response.whenComplete((ignored, throwable) -> outstandingCookies.remove(key, response));
+    this.delegate.getConnection().write(new ClientboundCookieRequestPacket(key));
+    return response;
+  }
+
+  @Override
+  public boolean isEncrypted() {
+    return encrypted;
+  }
+
+  void encrypted() {
+    this.encrypted = true;
+  }
+
+  boolean handleCookieResponse(final ServerboundCookieResponsePacket packet) {
+    final CompletableFuture<byte[]> response = outstandingCookies.remove(packet.getKey());
+    if (response == null) {
+      return false;
+    }
+    response.complete(packet.getPayload());
+    return true;
+  }
+
   /**
    * Disconnects the connection from the server.
    *
@@ -129,6 +176,9 @@ public class LoginInboundConnection implements LoginPhaseConnection, KeyIdentifi
   void cleanup() {
     this.loginMessagesToSend.clear();
     this.outstandingResponses.clear();
+    this.outstandingCookies.values().forEach(response ->
+        response.completeExceptionally(new IllegalStateException("Login connection closed")));
+    this.outstandingCookies.clear();
     this.onAllMessagesHandled = null;
   }
 
