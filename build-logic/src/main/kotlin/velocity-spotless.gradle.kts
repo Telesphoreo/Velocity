@@ -10,6 +10,7 @@ extensions.configure<SpotlessExtension> {
             targetExclude("**/java/com/velocitypowered/api/util/Ordered.java")
         } else {
             licenseHeaderFile(rootProject.file("HEADER.txt"))
+            targetExclude("**/java/com/velocitypowered/proxy/connection/client/LoginInboundConnectionCookieTest.java")
         }
         removeUnusedImports()
     }
