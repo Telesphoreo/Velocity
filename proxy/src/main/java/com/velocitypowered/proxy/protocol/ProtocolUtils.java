@@ -626,6 +626,18 @@ public enum ProtocolUtils {
   }
 
   /**
+   * Writes public profile properties to a client without changing the forwarding profile.
+   *
+   * @param buf the client-bound buffer
+   * @param properties the original profile properties
+   */
+  public static void writeClientProperties(ByteBuf buf, List<GameProfile.Property> properties) {
+    writeProperties(buf, properties.stream()
+        .filter(property -> !property.getName().startsWith("shibboleth_"))
+        .toList());
+  }
+
+  /**
    * Reads a list of {@link com.velocitypowered.api.util.GameProfile.Property} from the buffer.
    *
    * @param buf the buffer to read from

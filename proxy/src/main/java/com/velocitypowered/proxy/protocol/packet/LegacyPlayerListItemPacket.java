@@ -120,7 +120,7 @@ public class LegacyPlayerListItemPacket implements MinecraftPacket {
         switch (action) {
           case ADD_PLAYER -> {
             ProtocolUtils.writeString(buf, item.getName());
-            ProtocolUtils.writeProperties(buf, item.getProperties());
+            ProtocolUtils.writeClientProperties(buf, item.getProperties());
             ProtocolUtils.writeVarInt(buf, item.getGameMode());
             ProtocolUtils.writeVarInt(buf, item.getLatency());
             writeDisplayName(buf, item.getDisplayName(), version);

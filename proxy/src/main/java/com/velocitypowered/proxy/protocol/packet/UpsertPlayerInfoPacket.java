@@ -142,7 +142,7 @@ public class UpsertPlayerInfoPacket implements MinecraftPacket {
       );
     }, (ignored, buf, info) -> { // write
       ProtocolUtils.writeString(buf, info.profile.getName());
-      ProtocolUtils.writeProperties(buf, info.profile.getProperties());
+      ProtocolUtils.writeClientProperties(buf, info.profile.getProperties());
     }),
     INITIALIZE_CHAT((version, buf, info) -> { // read
       if (buf.readBoolean()) {

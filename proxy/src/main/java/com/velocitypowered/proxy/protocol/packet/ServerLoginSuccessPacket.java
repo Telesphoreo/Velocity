@@ -130,7 +130,7 @@ public class ServerLoginSuccessPacket implements MinecraftPacket {
       if (properties == null) {
         ProtocolUtils.writeVarInt(buf, 0);
       } else {
-        ProtocolUtils.writeProperties(buf, properties);
+        ProtocolUtils.writeClientProperties(buf, properties);
       }
     }
     if (version == ProtocolVersion.MINECRAFT_1_20_5 || version == ProtocolVersion.MINECRAFT_1_21) {
