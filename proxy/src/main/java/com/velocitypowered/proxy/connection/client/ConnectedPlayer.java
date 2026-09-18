@@ -379,6 +379,18 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   }
 
   @Override
+  public String getConnectionId() {
+    return connection.getChannel().id().asLongText();
+  }
+
+  @Override
+  public java.util.concurrent.CompletionStage<Void> getDisconnectFuture() {
+    java.util.concurrent.CompletableFuture<Void> closed = new java.util.concurrent.CompletableFuture<>();
+    connection.getChannel().closeFuture().addListener(ignored -> closed.complete(null));
+    return closed.minimalCompletionStage();
+  }
+
+  @Override
   public Optional<InetSocketAddress> getVirtualHost() {
     return Optional.ofNullable(virtualHost);
   }

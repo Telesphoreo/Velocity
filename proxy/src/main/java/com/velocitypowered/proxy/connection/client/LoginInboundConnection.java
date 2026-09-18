@@ -77,6 +77,16 @@ public class LoginInboundConnection implements LoginPhaseConnection, KeyIdentifi
   }
 
   @Override
+  public String getConnectionId() {
+    return delegate.getConnectionId();
+  }
+
+  @Override
+  public java.util.concurrent.CompletionStage<Void> getDisconnectFuture() {
+    return delegate.getDisconnectFuture();
+  }
+
+  @Override
   public Optional<InetSocketAddress> getVirtualHost() {
     return delegate.getVirtualHost();
   }

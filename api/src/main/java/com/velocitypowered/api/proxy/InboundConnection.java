@@ -19,6 +19,25 @@ import java.util.Optional;
 public interface InboundConnection {
 
   /**
+   * Returns the identifier of this transport connection. It remains unchanged across login wrappers.
+   * A reconnect has a different identifier, even when it reuses the same remote address.
+   *
+   * @return the transport connection identifier
+   */
+  default String getConnectionId() {
+    throw new UnsupportedOperationException("Transport connection identity is unavailable");
+  }
+
+  /**
+   * Returns a stage that completes when this transport closes, including before player creation.
+   *
+   * @return the transport disconnect stage
+   */
+  default java.util.concurrent.CompletionStage<Void> getDisconnectFuture() {
+    throw new UnsupportedOperationException("Transport disconnect notification is unavailable");
+  }
+
+  /**
    * Returns the player's IP address.
    *
    * @return the player's IP
