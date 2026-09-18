@@ -63,7 +63,7 @@ class ShibbolethProfileVisibilityTest {
       assertEquals(profile.getId(), received.getUuid());
       assertEquals(profile.getName(), received.getUsername());
       assertPublicProperties(received.getProperties());
-      assertEquals(5, profile.getProperties().size());
+      assertEquals(8, profile.getProperties().size());
       assertFalse(bytes.isReadable());
     } finally {
       bytes.release();
@@ -108,7 +108,7 @@ class ShibbolethProfileVisibilityTest {
           assertEquals(original.getListOrder(), actual.getListOrder());
           assertEquals(original.isShowHat(), actual.isShowHat());
         }
-        assertEquals(5, original.getProfile().getProperties().size());
+        assertEquals(8, original.getProfile().getProperties().size());
       }
       assertFalse(bytes.isReadable());
     } finally {
@@ -137,8 +137,28 @@ class ShibbolethProfileVisibilityTest {
       assertEquals(item.getGameMode(), actual.getGameMode());
       assertEquals(item.getLatency(), actual.getLatency());
       assertEquals(item.getDisplayName(), actual.getDisplayName());
-      assertEquals(5, profile.getProperties().size());
+      assertEquals(8, profile.getProperties().size());
       assertFalse(bytes.isReadable());
+    } finally {
+      bytes.release();
+    }
+  }
+
+  @Test
+  void absentTexturesProduceAnEmptyPropertyListAndUnsignedTexturesRemainUnsigned() {
+    var properties = List.of(new GameProfile.Property("federation.trace", "trace-28b6d0", ""),
+        new GameProfile.Property("custom", "private", ""));
+    ByteBuf bytes = Unpooled.buffer();
+    try {
+      ProtocolUtils.writeClientProperties(bytes, properties);
+      assertEquals(List.of(), ProtocolUtils.readProperties(bytes));
+      assertFalse(bytes.isReadable());
+      ProtocolUtils.writeClientProperties(bytes,
+          List.of(new GameProfile.Property("textures", "unsigned-skin", "")));
+      assertEquals(List.of(List.of("textures", "unsigned-skin", "")),
+          propertyValues(ProtocolUtils.readProperties(bytes)));
+      assertFalse(bytes.isReadable());
+      assertEquals("private", properties.get(1).getValue());
     } finally {
       bytes.release();
     }
@@ -202,18 +222,25 @@ class ShibbolethProfileVisibilityTest {
         new GameProfile.Property("shibboleth_session", "secret-" + name, ""),
         new GameProfile.Property("shibboleth_interface", "dialog", ""),
         new GameProfile.Property("shibboleth_auth_test", "discord", ""),
-        new GameProfile.Property("public_property", "public-value", "")));
+        new GameProfile.Property("public_property", "public-value", ""),
+        new GameProfile.Property("federation.trace", "trace-7c91e4", ""),
+        new GameProfile.Property("Textures", "wrong-case", ""),
+        new GameProfile.Property("textures_extra", "wrong-prefix", "")));
   }
 
   private static void assertNoSecrets(ByteBuf bytes) {
     String encoded = bytes.toString(StandardCharsets.ISO_8859_1);
     assertFalse(encoded.contains("shibboleth_"));
     assertFalse(encoded.contains("secret-"));
+    assertFalse(encoded.contains("public-value"));
+    assertFalse(encoded.contains("trace-7c91e4"));
+    assertFalse(encoded.contains("wrong-case"));
+    assertFalse(encoded.contains("wrong-prefix"));
   }
 
   private static void assertPublicProperties(List<GameProfile.Property> properties) {
-    assertEquals(List.of(List.of("textures", "skin-value", "skin-signature"),
-        List.of("public_property", "public-value", "")), propertyValues(properties));
+    assertEquals(List.of(List.of("textures", "skin-value", "skin-signature")),
+        propertyValues(properties));
   }
 
   private static List<List<String>> propertyValues(List<GameProfile.Property> properties) {
