@@ -70,7 +70,7 @@ fill {
     project("velocity")
 
     build {
-        channel = BuildChannel.STABLE
+        channel = if (projectVersion.endsWith("-SNAPSHOT")) BuildChannel.BETA else BuildChannel.STABLE
         versionFamily("4.0.0")
         version(projectVersion)
 
